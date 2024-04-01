@@ -36,7 +36,7 @@ def main():
     a.fit()
     a.save('./test.wbc')
 
-    a.test('./mnist_test.csv')
+    # a.test('./mnist_test.csv')
 
 
 

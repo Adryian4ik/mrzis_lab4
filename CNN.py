@@ -329,11 +329,11 @@ class CNN:
     def __init__(self):
         self.layers = [
             MapConvert((1, 28, 28), 6, matrix_for_converter1),
-            Convolve((6, 28, 28), (3, 3), linear, derivative_of_linear),
+            Convolve((6, 28, 28), (9, 9), linear, derivative_of_linear),
             Pooling((6, 28, 28), (2, 2)),
 
             MapConvert((6, 14, 14), 15, matrix_for_converter2),
-            Convolve((15, 14, 14), (3, 3), tanh, derivative_of_tanh),
+            Convolve((15, 14, 14), (5, 5), tanh, derivative_of_tanh),
             Pooling((15, 14, 14), (4, 4)),
 
             MapConvert((15, 4, 4), 30, matrix_for_converter3),
