@@ -1,43 +1,33 @@
-import numpy as np
 
 from CNN import *
 
 
 def main():
-    kernel = np.zeros((2, 3, 3))
-    kernel[0] = np.array([[0, 0, 0],
-                          [0, 0, 1],
-                          [0, 0, 0], ])
-    kernel[1] = np.array([[1, 0, 0],
-                          [0, 1, 0],
-                          [1, 0, 0], ])
 
-    # c = Convolve((2, 4, 4), (3, 3), linear, derivative_of_linear, kernel)
-    c = Convolve((2, 4, 4), (3, 3), linear, derivative_of_linear, kernel)
+    matrix_1_to_16 = np.ones((1, 16), dtype=bool)
 
-    image = np.zeros((2, 4, 4))
-    image[0] = [[0, 0, 0, 0],
-                [0, 0, 0, 0],
-                [1, 1, 1, 1],
-                [0, 0, 0, 0]]
-    image[1] = [[0, 0, 1, 0],
-                [0, 0, 1, 0],
-                [0, 0, 1, 0],
-                [0, 0, 1, 0]]
-    output = np.zeros((2, 4, 4))
-    output[0] = [[0, 0, 0, 0],
-                 [0, 0, 0, 0],
-                 [2, 3, 3, 2],
-                 [0, 0, 0, 0]]
+    matrix_16_to_32 = np.ones((16, 32), dtype=bool)
 
-    a = CNN()
-    # a.load('./test.wbc')
-    a.load_trainset('./test.csv')
-    a.fit()
-    a.save('./test.wbc')
+    layers: list = [
+        MapConvert((1, 28, 28), 16, matrix_1_to_16),
+        Convolve((16, 28, 28), (16, 5, 5), relu, derivative_of_relu),
+        Pooling((16, 24, 24), (2, 2)),
 
-    # a.test('./mnist_test.csv')
+        MapConvert((16, 12, 12), 32, matrix_16_to_32),
+        Convolve((32, 12, 12), (32, 5, 5), relu, derivative_of_relu),
+        Pooling((32, 8, 8), (2, 2)),
 
+        MLPLayer((32, 4, 4), 10, sigmoid, derivative_of_sigmoid)
+    ]
+
+    cnn: CNN = CNN(layers)
+    cnn.load_trainset('datasets/test.csv')
+    cnn.load('weights/state_model.wbc')
+    cnn.fit(2.5e-3)
+
+    cnn.save('weights/state_model.wbc')
+
+    cnn.test('datasets/test.csv')
 
 
 if __name__ == '__main__':

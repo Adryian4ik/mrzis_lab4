@@ -160,4 +160,8 @@ cython_debug/
 #.idea/
 
 
-mnist_train.csv
+weights/*
+datasets/*
+
+!weights/*.zip
+!datasets/*.zip
