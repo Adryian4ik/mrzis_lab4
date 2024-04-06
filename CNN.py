@@ -1,10 +1,29 @@
-import sys
+from math import ceil, exp, log
+import matplotlib.pyplot as plt
 import numpy as np
-from math import ceil, exp
 import pickle
+import sys
+
 
 np.random.seed(12)
 bar_length = 50
+count_of_image = 1
+
+
+def ln_y(y: float, e: float):
+    return e * log(y)
+
+
+def entropy_loss(output: np.array, etalon: np.array) -> float:
+    ln_y_v = np.vectorize(ln_y)
+    error = 0
+    error += np.sum(ln_y_v(output, etalon))
+    error += np.sum(ln_y_v(1 - output, 1 - etalon))
+    return -error
+
+
+def mse_loss(output: np.array, etalon: np.array) -> float:
+    return np.sum((output - etalon) ** 2) / 2
 
 
 def relu(x: float) -> float:
@@ -38,6 +57,10 @@ def derivative_of_tanh(x: float) -> float:
 
 
 def sigmoid(x: float) -> float:
+    if x > 500:
+        return 1
+    elif x < -150:
+        return 0
     return 1 / (1 + exp(-x))
 
 
@@ -59,7 +82,7 @@ class Operation:
 
 
 class Convolve(Operation):
-    lr: float = 1.0
+    lr: float = 0.01
 
     def __init__(self, in_size: tuple[int, int, int], kernel_size: tuple[int, int, int], af, daf):
         self.size = in_size
@@ -134,7 +157,6 @@ class Convolve(Operation):
             s = self.get_s(image, k)
             y = self.af(s)
             result[k] = np.reshape(y, self.out_size[1:])
-            pass
         return result
 
     def get_s(self, image: np.array, k: int):
@@ -157,7 +179,6 @@ class Convolve(Operation):
 
             result_error = np.dot(error_with_der, self.weights[k].T)[:, :-1]
             result[k] = np.reshape(result_error, self.size[1:])
-            pass
         return result
 
     def learn(self, in_image: np.array, errors: np.array):
@@ -200,11 +221,9 @@ class MapConvert(Operation):
             for image_index in range(self.bool_matrix.shape[0]):
                 if self.bool_matrix[image_index, k]:
                     temp += images[image_index]
-                    pass
                     result[k, :, :] += images[image_index]
 
             result[k] /= np.count_nonzero(self.bool_matrix[:, k])
-            pass
         return result
 
     def get_error(self, in_images: np.array, errors: np.array) -> np.array:
@@ -267,7 +286,7 @@ class Pooling(Operation):
                     res[mask2] = error[y, x]
 
                     result[k, y * self.pool_size[0]: (y + 1) * self.pool_size[0],
-                              x * self.pool_size[1]: (x + 1) * self.pool_size[1]] = np.reshape(res, self.pool_size)
+                           x * self.pool_size[1]: (x + 1) * self.pool_size[1]] = np.reshape(res, self.pool_size)
         return result
 
 
@@ -281,8 +300,6 @@ class MLPLayer(Operation):
         self.weights[:-1, :] *= 0
         self.af = np.vectorize(af)
         self.daf = np.vectorize(daf)
-
-        pass
 
     def get_s(self, images: np.array):
         if images.shape == self.size[1:]:
@@ -303,8 +320,7 @@ class MLPLayer(Operation):
             in_images = np.array([in_images])
 
         error_with_der = errors * self.daf(self.get_s(in_images))
-
-        res = np.dot(error_with_der, self.weights[:-1].T)
+        res = np.dot(errors, self.weights[:-1].T)  # так как используется кроссэнтропия то вместо производной берем 1
         return np.reshape(res, in_images.shape)
 
     def learn(self, images: np.array, errors: np.array):
@@ -317,8 +333,7 @@ class MLPLayer(Operation):
 
         error_with_der_s = errors * self.daf(self.get_s(images))
 
-        self.weights -= self.lr * np.dot(error_with_der_s.T, x).T
-        pass
+        self.weights -= self.lr / count_of_image * np.dot(errors.T, x).T  # -//- вместо производной берем 1
 
 
 class CNN:
@@ -341,15 +356,11 @@ class CNN:
 
                 current_error = self.get_error()
                 epoch += 1
-                # break
                 if epoch < 100 or epoch % 100 == 0:
                     print(f"#{epoch:6d} - {current_error:.3e}")
         except:
             pass
-
         print(f"#{epoch:6d} - {current_error:.3e}")
-
-        pass
 
     def learn(self):
 
@@ -384,33 +395,15 @@ class CNN:
         sys.stdout.write('\r' + ' ' * (bar_length + 8) + '\r')
         sys.stdout.flush()
 
-    def get_error(self) -> np.array:
-        error = 0
-        count_of_images = self.trainset.shape[0]
-        for index, image in enumerate(self.trainset):
-            progress = index / count_of_images
-            bar = '=' * int(progress * bar_length) + ' ' * (bar_length - int(progress * bar_length))
-            percent = progress * 100
-            sys.stdout.write('\r[%s] %d%%' % (bar, percent))
-            sys.stdout.flush()
-            output = image
-            etalon = self.etalons[index]
-            for layer in self.layers:
-                output = layer.get_output(np.reshape(output, layer.size))
-            for absolute_error in (output - etalon)[0]:
-                error += absolute_error ** 2
-        sys.stdout.write('\r' + ' ' * (bar_length + 8) + '\r')
-        sys.stdout.flush()
-        error /= 2 * count_of_images
-        return error
-
     def load_trainset(self, path: str):
         temp = np.genfromtxt(path, skip_header=True, delimiter=',')
-        self.etalons = np.zeros((temp.shape[0], 10))
+        self.etalons = np.zeros((temp.shape[0], 1, 10))
         self.trainset = np.zeros((temp.shape[0], 28, 28))
         for j in range(temp[:, 0].shape[0]):
-            self.etalons[j] = np.array([0 if i != temp[j, 0] else 1 for i in range(10)])
+            self.etalons[j] = np.array([[0 if i != temp[j, 0] else 1 for i in range(10)]])
             self.trainset[j] = np.reshape(temp[j, 1:], (1, 28, 28)) / 255
+        global count_of_image
+        count_of_image = temp[:, 0].shape[0]
 
     def save(self, path: str):
         with open(path, 'wb') as f:
@@ -446,5 +439,70 @@ class CNN:
             if np.argmax(etalon) == np.argmax(result):
                 correct_count += 1
             print(np.argmax(etalon), np.argmax(result))
-            print(etalon, result)
         print(f'Правильных ответов - {correct_count}, всего - {trainset.shape[0]}')
+
+    def get_error(self) -> np.array:
+        error = 0
+        count_of_images = self.trainset.shape[0]
+        for index, image in enumerate(self.trainset):
+            progress = index / count_of_images
+            bar = '=' * int(progress * bar_length) + ' ' * (bar_length - int(progress * bar_length))
+            percent = progress * 100
+            sys.stdout.write('\r[%s] %d%%' % (bar, percent))
+            sys.stdout.flush()
+
+            output = image
+            etalon = self.etalons[index]
+            for layer in self.layers:
+                output = layer.get_output(np.reshape(output, layer.size))
+
+            # error += np.sum((output - etalon) ** 2)  # MSE
+            error += entropy_loss(output, etalon)  # Cross entropy
+
+        sys.stdout.write('\r' + ' ' * (bar_length + 8) + '\r')
+        sys.stdout.flush()
+        error /= count_of_images
+        return error
+
+    def test_with_vizual(self, path):
+        temp = np.genfromtxt(path, skip_header=True, delimiter=',')
+
+        etalons = np.zeros((temp.shape[0], 10))
+        trainset = np.zeros((temp.shape[0], 28, 28))
+        for j in range(temp[:, 0].shape[0]):
+            etalons[j] = np.array([0 if i != temp[j, 0] else 1 for i in range(10)])
+            trainset[j] = np.reshape(temp[j, 1:], (1, 28, 28)) / 255
+
+        for index in range(trainset.shape[0]):
+
+            image = trainset[index: index + 1]
+            output = np.copy(image)
+            etalon = etalons[index]
+            in_out_list = [output]
+
+            for layer in self.layers:
+                in_out_list.append(layer.get_output(in_out_list[-1]))
+
+            result = np.copy(in_out_list[-1])
+            fig, ax = plt.subplots(figsize=(8, 6))
+            ax.imshow(np.reshape(image, (28, 28)), cmap='gray', interpolation='nearest')
+            for i in range(10):
+                if i == np.argmax(etalon):
+                    ax.text(28.5, i, f'{i} - {100 * result[0, i]:.2f}%', va='center', color='green')
+                elif i == np.argmax(result):
+                    ax.text(28.5, i, f'{i} - {100 * result[0, i]:.2f}%', va='center', color='blue')
+                else:
+                    ax.text(28.5, i, f'{i} - {100 * result[0, i]:.2f}%', va='center', )
+            ax.axis('off')
+            plt.show()
+
+    def kernel_viz(self):
+        for layer in self.layers:
+            if isinstance(layer, Convolve):
+                kernels = layer.kernel
+                fig, axes = plt.subplots(5, 8, figsize=(10, 10))
+                for i, ax in enumerate(axes.flat):
+                    if i < kernels.shape[0]:
+                        ax.imshow(kernels[i], cmap='gray')
+                    ax.axis('off')
+                plt.show()

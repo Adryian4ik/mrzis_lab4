@@ -1,4 +1,3 @@
-
 from CNN import *
 
 
@@ -20,14 +19,25 @@ def main():
         MLPLayer((32, 4, 4), 10, sigmoid, derivative_of_sigmoid)
     ]
 
+    dataset_name = 'test100.csv'
+    error = 4.02e-01
     cnn: CNN = CNN(layers)
-    cnn.load_trainset('datasets/test.csv')
-    cnn.load('weights/state_model.wbc')
-    cnn.fit(2.5e-3)
 
-    cnn.save('weights/state_model.wbc')
+    is_learn = False
 
-    cnn.test('datasets/test.csv')
+    if is_learn:
+        cnn.load_trainset(f'datasets/{dataset_name}')    # загружаем датасет
+        cnn.load('weights/test100.csv 0.5694.wbc')       # загружаем предобученные веса
+        cnn.fit(error)                                   # обучаем до ошибки
+        cnn.save(f'weights/{dataset_name} {error}.wbc')  # сохранчем веса
+        cnn.test(f'datasets/{dataset_name}')             # проверяем работу
+    else:
+        cnn.load('weights/test100.csv 0.5694.wbc')           # загружаем предобученные веса
+        cnn.load_trainset(f'datasets/{dataset_name}')        # загружаем датасет
+        print(cnn.get_error())                               # выводим ошибку на датасете
+        cnn.test(f'datasets/{dataset_name}')                 # выводим тестовые данные
+        # cnn.test_with_vizual(f'datasets/{dataset_name}')     # выводим цифру и процент угаданности
+        # cnn.kernel_viz()                                     # визуализируем ядра свертки
 
 
 if __name__ == '__main__':
