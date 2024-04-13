@@ -20,24 +20,25 @@ def main():
     ]
 
     dataset_name = 'test100.csv'
-    error = 4.02e-01
+    error = 0.25
     cnn: CNN = CNN(layers)
 
     is_learn = False
 
     if is_learn:
         cnn.load_trainset(f'datasets/{dataset_name}')    # загружаем датасет
-        cnn.load('weights/test100.csv 0.5694.wbc')       # загружаем предобученные веса
+        cnn.load('weights/test100.csv 0.5.wbc')       # загружаем предобученные веса
         cnn.fit(error)                                   # обучаем до ошибки
-        cnn.save(f'weights/{dataset_name} {error}.wbc')  # сохранчем веса
+        cnn.save(f'weights/{dataset_name} {error}.wbc')  # сохраняем веса
         cnn.test(f'datasets/{dataset_name}')             # проверяем работу
     else:
-        cnn.load('weights/test100.csv 0.5694.wbc')           # загружаем предобученные веса
+        cnn.load('weights/test100.csv 0.25.wbc')           # загружаем предобученные веса
         cnn.load_trainset(f'datasets/{dataset_name}')        # загружаем датасет
         print(cnn.get_error())                               # выводим ошибку на датасете
-        cnn.test(f'datasets/{dataset_name}')                 # выводим тестовые данные
+        cnn.test(f'datasets/mnist_test.csv')                 # выводим тестовые данные
+        # cnn.test(f'datasets/{dataset_name}')                 # выводим тестовые данные
         # cnn.test_with_vizual(f'datasets/{dataset_name}')     # выводим цифру и процент угаданности
-        # cnn.kernel_viz()                                     # визуализируем ядра свертки
+        cnn.kernel_viz()                                     # визуализируем ядра свертки
 
 
 if __name__ == '__main__':

@@ -40,22 +40,6 @@ def derivative_of_relu(x: float) -> float:
         return 0.1
 
 
-def linear(x: float) -> float:
-    return x
-
-
-def derivative_of_linear(x: float) -> float:
-    return x * 0 + 1
-
-
-def tanh(x: float) -> float:
-    return 2 / (1 + exp(-2 * x)) - 1
-
-
-def derivative_of_tanh(x: float) -> float:
-    return 1 - tanh(x) ** 2
-
-
 def sigmoid(x: float) -> float:
     if x > 500:
         return 1
@@ -82,7 +66,7 @@ class Operation:
 
 
 class Convolve(Operation):
-    lr: float = 0.01
+    lr: float = 1
 
     def __init__(self, in_size: tuple[int, int, int], kernel_size: tuple[int, int, int], af, daf):
         self.size = in_size
@@ -191,15 +175,16 @@ class Convolve(Operation):
             x = np.append(x, np.array([[-1]]), axis=1)
             error_with_der = self.daf(self.get_s(image, k)) * error_line
 
-            delta_weights = self.lr * np.dot(error_with_der.T, x)
+            delta_weights = self.lr / count_of_image * np.dot(error_with_der.T, x)
 
-            self.biases[k, 0] -= delta_weights[-1, 0]
+            self.biases[k, 0] -= np.sum(delta_weights[-1, :]) / delta_weights[-1, :].shape[0]
+            self.weights[k, -1, :] = self.biases[k, 0]
             delta_weights = delta_weights.T
 
             for y in range(self.kernel_size[1]):
                 for x in range(self.kernel_size[2]):
                     bool_matrix = self.bool_matrix[k, y, x]
-                    total_error = np.sum(delta_weights[bool_matrix])
+                    total_error = np.sum(delta_weights[bool_matrix]) / delta_weights[bool_matrix].shape[0]
                     self.kernel[k, y, x] -= total_error
 
         self.set_kernel(self.kernel)
@@ -211,8 +196,6 @@ class MapConvert(Operation):
         self.size = in_size
         self.out_size = (out_map_count, self.size[1], self.size[2])
         self.bool_matrix = bool_matrix
-        self.af = np.vectorize(linear)
-        self.daf = np.vectorize(derivative_of_linear)
 
     def get_output(self, images: np.array):
         result = np.zeros(self.out_size)
@@ -297,7 +280,6 @@ class MLPLayer(Operation):
         self.out_size = (in_size[0], 1, out_count_of_neurons)
         self.size = in_size
         self.weights = (np.random.rand(in_size[0] * in_size[1] * in_size[2] + 1, out_count_of_neurons) * 2 - 1) * 0.05
-        self.weights[:-1, :] *= 0
         self.af = np.vectorize(af)
         self.daf = np.vectorize(daf)
 
@@ -353,7 +335,6 @@ class CNN:
         try:
             while current_error > error:
                 self.learn()
-
                 current_error = self.get_error()
                 epoch += 1
                 if epoch < 100 or epoch % 100 == 0:
